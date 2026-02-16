@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import 'counter_controller.dart';
+import 'package:logbook_app_094/features/logbook/counter_controller.dart';
+import 'package:logbook_app_094/features/onboarding/onboarding_view.dart';
 
 class CounterView extends StatefulWidget {
-  const CounterView({super.key});
+  final String username;
+
+  const CounterView({super.key, required this.username});
+
   @override
   State<CounterView> createState() => _CounterViewState();
 }
@@ -12,6 +16,25 @@ class _CounterViewState extends State<CounterView> {
   final TextEditingController _stepText = TextEditingController(text: '1');
 
   String? _stepError;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAll();
+  }
+
+  Future<void> _loadAll() async {
+    await _controller.loadAll();
+
+    // sinkronkan textfield dengan step tersimpan
+    _stepText.text = _controller.step.toString();
+
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+    });
+  }
 
   @override
   void dispose() {
@@ -21,7 +44,7 @@ class _CounterViewState extends State<CounterView> {
 
   bool get _isStepValid => _stepError == null && _stepText.text.trim().isNotEmpty;
 
-  void _validateAndSetStep(String input) {
+  Future<void> _validateAndSetStep(String input) async {
     final n = int.tryParse(input);
 
     if (n == null) {
@@ -36,36 +59,125 @@ class _CounterViewState extends State<CounterView> {
 
     setState(() {
       _stepError = null;
-      _controller.setStep(n);
+      _controller.setStep(widget.username, n);
     });
+
+    await _controller.saveAll();
+  }
+
+  Future<void> _increment() async {
+    setState(() => _controller.increment(widget.username));
+    await _controller.saveAll();
+  }
+
+  Future<void> _decrement() async {
+    setState(() => _controller.decrement(widget.username));
+    await _controller.saveAll();
+  }
+
+  Future<void> _resetCounter() async {
+    setState(() => _controller.reset(widget.username));
+    await _controller.saveAll();
   }
 
   Color _historyColor(String text) {
     Color color = const Color(0xFF4A5A7A);
 
     if (text.contains('+')) {
-      color = const Color(0xFF2E7D6B); // soft green
-    } else if (text.contains('-') || text.contains('Gagal')) {
-      color = const Color(0xFFB23A55); // soft red
+      color = const Color(0xFF2E7D6B);
+    } else if (text.contains('-') || text.toLowerCase().contains('gagal')) {
+      color = const Color(0xFFB23A55);
     } else if (text.toLowerCase().contains('reset')) {
-      color = const Color(0xFF3B5CCC); // blue-ish
+      color = const Color(0xFF3B5CCC);
     }
 
     return color;
   }
 
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFFF6F8FF),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Text(
+            "Konfirmasi Logout",
+            style: TextStyle(
+              color: Color(0xFF1F2A44),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: const Text(
+            "Apakah Anda yakin? Data yang belum disimpan mungkin akan hilang.",
+            style: TextStyle(color: Color(0xFF4A5A7A)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF3B5CCC),
+              ),
+              child: const Text("Batal"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const OnboardingView()),
+                  (route) => false,
+                );
+              },
+              child: const Text(
+                "Ya, Keluar",
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF6F8FF),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FF),
-      appBar: AppBar(title: const Text("LogBook: Versi SRP")),
+      appBar: AppBar(
+        title: Text("LogBook: ${widget.username}"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _confirmLogout,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Main Card
+              Text(
+                "Selamat Datang, ${widget.username}!",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF4A5A7A),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -118,8 +230,8 @@ class _CounterViewState extends State<CounterView> {
                           ),
                         ),
                       ),
-                      onChanged: _validateAndSetStep,
-                      onSubmitted: _validateAndSetStep,
+                      onChanged: (v) => _validateAndSetStep(v),
+                      onSubmitted: (v) => _validateAndSetStep(v),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -136,9 +248,7 @@ class _CounterViewState extends State<CounterView> {
                           heroTag: "dec",
                           backgroundColor: const Color(0xFFFFD6E0),
                           foregroundColor: const Color(0xFF7A1F35),
-                          onPressed: _isStepValid
-                              ? () => setState(() => _controller.decrement())
-                              : null,
+                          onPressed: _isStepValid ? _decrement : null,
                           child: const Icon(Icons.remove),
                         ),
                         const SizedBox(width: 16),
@@ -146,9 +256,7 @@ class _CounterViewState extends State<CounterView> {
                           heroTag: "inc",
                           backgroundColor: const Color(0xFFD6E7FF),
                           foregroundColor: const Color(0xFF1F2A44),
-                          onPressed: _isStepValid
-                              ? () => setState(() => _controller.increment())
-                              : null,
+                          onPressed: _isStepValid ? _increment : null,
                           child: const Icon(Icons.add),
                         ),
                       ],
@@ -224,7 +332,7 @@ class _CounterViewState extends State<CounterView> {
                           );
 
                           if (ok == true) {
-                            setState(() => _controller.reset());
+                            await _resetCounter();
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -273,10 +381,7 @@ class _CounterViewState extends State<CounterView> {
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Text(
-                        "• $text",
-                        style: TextStyle(color: color),
-                      ),
+                      child: Text("• $text", style: TextStyle(color: color)),
                     );
                   },
                 ),
