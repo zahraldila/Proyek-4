@@ -21,7 +21,7 @@ class _LoginViewState extends State<LoginView> {
   int _lockSecondsLeft = 0;
   Timer? _lockTimer;
 
-  // Poin 3: show/hide password
+  // show/hide password
   bool _obscurePass = true;
 
   void _showSnack(String msg) {
@@ -117,7 +117,7 @@ class _LoginViewState extends State<LoginView> {
             ),
             TextField(
               controller: _passController,
-              obscureText: _obscurePass, // <-- toggle di sini
+              obscureText: _obscurePass, 
               decoration: InputDecoration(
                 labelText: "Password",
                 suffixIcon: IconButton(

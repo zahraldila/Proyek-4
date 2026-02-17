@@ -25,15 +25,11 @@ class _CounterViewState extends State<CounterView> {
   }
 
   Future<void> _loadAll() async {
-    await _controller.loadAll();
-
-    // sinkronkan textfield dengan step tersimpan
+    await _controller.loadAll(widget.username);
     _stepText.text = _controller.step.toString();
 
     if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
   }
 
   @override
@@ -42,7 +38,17 @@ class _CounterViewState extends State<CounterView> {
     super.dispose();
   }
 
-  bool get _isStepValid => _stepError == null && _stepText.text.trim().isNotEmpty;
+  // Welcome Banner
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour >= 6 && hour < 11) return "Selamat Pagi";
+    if (hour >= 11 && hour < 15) return "Selamat Siang";
+    if (hour >= 15 && hour < 18) return "Selamat Sore";
+    return "Selamat Malam";
+  }
+
+  bool get _isStepValid =>
+      _stepError == null && _stepText.text.trim().isNotEmpty;
 
   Future<void> _validateAndSetStep(String input) async {
     final n = int.tryParse(input);
@@ -51,7 +57,6 @@ class _CounterViewState extends State<CounterView> {
       setState(() => _stepError = "Step harus berupa angka.");
       return;
     }
-
     if (n < 1) {
       setState(() => _stepError = "Step tidak boleh 0 atau negatif.");
       return;
@@ -62,27 +67,26 @@ class _CounterViewState extends State<CounterView> {
       _controller.setStep(widget.username, n);
     });
 
-    await _controller.saveAll();
+    await _controller.saveAll(widget.username);
   }
 
   Future<void> _increment() async {
     setState(() => _controller.increment(widget.username));
-    await _controller.saveAll();
+    await _controller.saveAll(widget.username);
   }
 
   Future<void> _decrement() async {
     setState(() => _controller.decrement(widget.username));
-    await _controller.saveAll();
+    await _controller.saveAll(widget.username);
   }
 
   Future<void> _resetCounter() async {
     setState(() => _controller.reset(widget.username));
-    await _controller.saveAll();
+    await _controller.saveAll(widget.username);
   }
 
   Color _historyColor(String text) {
     Color color = const Color(0xFF4A5A7A);
-
     if (text.contains('+')) {
       color = const Color(0xFF2E7D6B);
     } else if (text.contains('-') || text.toLowerCase().contains('gagal')) {
@@ -90,7 +94,6 @@ class _CounterViewState extends State<CounterView> {
     } else if (text.toLowerCase().contains('reset')) {
       color = const Color(0xFF3B5CCC);
     }
-
     return color;
   }
 
@@ -99,27 +102,11 @@ class _CounterViewState extends State<CounterView> {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          backgroundColor: const Color(0xFFF6F8FF),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          title: const Text(
-            "Konfirmasi Logout",
-            style: TextStyle(
-              color: Color(0xFF1F2A44),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          content: const Text(
-            "Apakah Anda yakin? Data yang belum disimpan mungkin akan hilang.",
-            style: TextStyle(color: Color(0xFF4A5A7A)),
-          ),
+          title: const Text("Konfirmasi Logout"),
+          content: const Text("Apakah Anda yakin ingin keluar?"),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF3B5CCC),
-              ),
               child: const Text("Batal"),
             ),
             TextButton(
@@ -131,10 +118,7 @@ class _CounterViewState extends State<CounterView> {
                   (route) => false,
                 );
               },
-              child: const Text(
-                "Ya, Keluar",
-                style: TextStyle(color: Colors.red),
-              ),
+              child: const Text("Ya, Keluar", style: TextStyle(color: Colors.red)),
             ),
           ],
         );
@@ -150,6 +134,8 @@ class _CounterViewState extends State<CounterView> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
+
+    final greeting = _getGreeting();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FF),
@@ -168,37 +154,39 @@ class _CounterViewState extends State<CounterView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                "Selamat Datang, ${widget.username}!",
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF4A5A7A),
-                  fontWeight: FontWeight.w600,
+              // Welcome Banner
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.85),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFD6E2FF)),
+                ),
+                child: Text(
+                  "$greeting, ${widget.username} 👋",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1F2A44),
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
 
+              const SizedBox(height: 14),
+
+              // Counter Card
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.88),
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                      color: Colors.black.withOpacity(0.06),
-                    ),
-                  ],
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text("Total Hitungan:", textAlign: TextAlign.center),
+                    const Text("Total Hitungan:"),
                     const SizedBox(height: 8),
                     Text(
                       '${_controller.value}',
-                      textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 56,
                         fontWeight: FontWeight.bold,
@@ -218,158 +206,50 @@ class _CounterViewState extends State<CounterView> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Color(0xFFD6E2FF)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF7AA7FF),
-                            width: 1.5,
-                          ),
-                        ),
                       ),
-                      onChanged: (v) => _validateAndSetStep(v),
-                      onSubmitted: (v) => _validateAndSetStep(v),
+                      onChanged: _validateAndSetStep,
+                      onSubmitted: _validateAndSetStep,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "Step saat ini: ${_controller.step}",
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Color(0xFF4A5A7A)),
-                    ),
-                    const SizedBox(height: 18),
 
+                    const SizedBox(height: 8),
+                    Text("Step saat ini: ${_controller.step}"),
+
+                    const SizedBox(height: 18),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         FloatingActionButton(
                           heroTag: "dec",
-                          backgroundColor: const Color(0xFFFFD6E0),
-                          foregroundColor: const Color(0xFF7A1F35),
                           onPressed: _isStepValid ? _decrement : null,
                           child: const Icon(Icons.remove),
                         ),
                         const SizedBox(width: 16),
                         FloatingActionButton(
                           heroTag: "inc",
-                          backgroundColor: const Color(0xFFD6E7FF),
-                          foregroundColor: const Color(0xFF1F2A44),
                           onPressed: _isStepValid ? _increment : null,
                           child: const Icon(Icons.add),
                         ),
                       ],
                     ),
 
-                    if (!_isStepValid)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 10),
-                        child: Text(
-                          "Perbaiki nilai Step dulu untuk memakai tombol +/-",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Color(0xFFB23A55),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-
                     const SizedBox(height: 12),
-                    Center(
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF7AA7FF),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        onPressed: () async {
-                          final ok = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              backgroundColor: const Color(0xFFF6F8FF),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                              title: const Text(
-                                "Konfirmasi Reset",
-                                style: TextStyle(
-                                  color: Color(0xFF1F2A44),
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              content: const Text(
-                                "Reset akan menghapus nilai dan riwayat aktivitas. Lanjutkan?",
-                                style: TextStyle(color: Color(0xFF4A5A7A)),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: const Color(0xFF3B5CCC),
-                                  ),
-                                  child: const Text("Batal"),
-                                ),
-                                FilledButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFF7AA7FF),
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                  child: const Text("Reset"),
-                                ),
-                              ],
-                            ),
-                          );
-
-                          if (ok == true) {
-                            await _resetCounter();
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: const Color(0xFF1F2A44),
-                                  content: const Text("Counter berhasil di-reset"),
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        child: const Text("Reset"),
-                      ),
+                    FilledButton(
+                      onPressed: _resetCounter,
+                      child: const Text("Reset"),
                     ),
                   ],
                 ),
               ),
 
               const SizedBox(height: 20),
-
               const Text(
                 "Riwayat (5 terakhir):",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2A44),
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
 
               if (_controller.history.isEmpty)
-                const Text(
-                  "Belum ada aktivitas.",
-                  style: TextStyle(color: Color(0xFF4A5A7A)),
-                )
+                const Text("Belum ada aktivitas.")
               else
                 ListView.builder(
                   shrinkWrap: true,
@@ -377,11 +257,12 @@ class _CounterViewState extends State<CounterView> {
                   itemCount: _controller.history.length,
                   itemBuilder: (context, index) {
                     final text = _controller.history[index];
-                    final color = _historyColor(text);
-
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Text("• $text", style: TextStyle(color: color)),
+                      child: Text(
+                        "• $text",
+                        style: TextStyle(color: _historyColor(text)),
+                      ),
                     );
                   },
                 ),

@@ -10,38 +10,45 @@ class CounterController {
   int get step => _step;
   List<String> get history => List.unmodifiable(_history);
 
-  static const String _keyCounter = 'last_counter';
-  static const String _keyStep = 'last_step';
-  static const String _keyHistory = 'history_list';
+  // Helper bikin key berdasarkan username
+  String _counterKey(String username) => 'last_counter_$username';
+  String _stepKey(String username) => 'last_step_$username';
+  String _historyKey(String username) => 'history_list_$username';
 
   // ==============================
-  //  LOAD SEMUA
+  // LOAD & SAVE PER USER
   // ==============================
-  Future<void> loadAll() async {
+
+  Future<void> loadAll(String username) async {
     final prefs = await SharedPreferences.getInstance();
 
-    _counter = prefs.getInt(_keyCounter) ?? 0;
-    _step = prefs.getInt(_keyStep) ?? 1;
+    _counter = prefs.getInt(_counterKey(username)) ?? 0;
+    _step = prefs.getInt(_stepKey(username)) ?? 1;
 
-    final savedHistory = prefs.getStringList(_keyHistory) ?? [];
+    final savedHistory = prefs.getStringList(_historyKey(username)) ?? [];
     _history
       ..clear()
       ..addAll(savedHistory);
   }
 
-  // ==============================
-  //  SAVE SEMUA
-  // ==============================
-  Future<void> saveAll() async {
+  Future<void> saveAll(String username) async {
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.setInt(_keyCounter, _counter);
-    await prefs.setInt(_keyStep, _step);
-    await prefs.setStringList(_keyHistory, _history);
+    await prefs.setInt(_counterKey(username), _counter);
+    await prefs.setInt(_stepKey(username), _step);
+    await prefs.setStringList(_historyKey(username), _history);
+  }
+
+  // kalau mau hapus data khusus user
+  Future<void> clearUserData(String username) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_counterKey(username));
+    await prefs.remove(_stepKey(username));
+    await prefs.remove(_historyKey(username));
   }
 
   // ==============================
-  // HISTORY LOG WITH USERNAME
+  // LOGIC + HISTORY (SRP)
   // ==============================
 
   void setStep(String username, int newStep) {
@@ -81,7 +88,6 @@ class CounterController {
 
     _history.insert(0, "User $username $action pada jam $time");
 
-    // batasi 5 terbaru
     if (_history.length > 5) {
       _history.removeRange(5, _history.length);
     }

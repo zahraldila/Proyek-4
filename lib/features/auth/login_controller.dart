@@ -3,8 +3,7 @@ class LoginController {
   final Map<String, String> _users = {
     "admin": "123",
     "user": "123",
-    // kamu bisa tambah lagi:
-    // "budi": "passbudi",
+    "budi": "123", 
   };
 
   bool login(String username, String password) {
