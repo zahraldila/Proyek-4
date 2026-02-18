@@ -47,8 +47,7 @@ class _CounterViewState extends State<CounterView> {
     return "Selamat Malam";
   }
 
-  bool get _isStepValid =>
-      _stepError == null && _stepText.text.trim().isNotEmpty;
+  bool get _isStepValid => _stepError == null && _stepText.text.trim().isNotEmpty;
 
   Future<void> _validateAndSetStep(String input) async {
     final n = int.tryParse(input);
@@ -71,11 +70,13 @@ class _CounterViewState extends State<CounterView> {
   }
 
   Future<void> _increment() async {
+    if (!_isStepValid) return;
     setState(() => _controller.increment(widget.username));
     await _controller.saveAll(widget.username);
   }
 
   Future<void> _decrement() async {
+    if (!_isStepValid) return;
     setState(() => _controller.decrement(widget.username));
     await _controller.saveAll(widget.username);
   }
@@ -118,7 +119,10 @@ class _CounterViewState extends State<CounterView> {
                   (route) => false,
                 );
               },
-              child: const Text("Ya, Keluar", style: TextStyle(color: Colors.red)),
+              child: const Text(
+                "Ya, Keluar",
+                style: TextStyle(color: Colors.red),
+              ),
             ),
           ],
         );
@@ -128,9 +132,19 @@ class _CounterViewState extends State<CounterView> {
 
   @override
   Widget build(BuildContext context) {
+    const bg = Color(0xFFF6F8FF);
+    const green1 = Color(0xFFA0D468);
+    const green2 = Color(0xFF8CC152);
+
+    const titleColor = Color(0xFF1F2A44);
+    const bodyColor = Color(0xFF4A5A7A);
+
+    const fieldFill = Color(0xFFEAF7E5); 
+    const cardWhite = Color(0xFFFFFFFF);
+
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFFF6F8FF),
+        backgroundColor: bg,
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -138,9 +152,18 @@ class _CounterViewState extends State<CounterView> {
     final greeting = _getGreeting();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FF),
+      backgroundColor: bg,
       appBar: AppBar(
-        title: Text("LogBook: ${widget.username}"),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          "LogBook: ${widget.username}",
+          style: const TextStyle(
+            color: titleColor,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        iconTheme: const IconThemeData(color: titleColor),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -149,127 +172,316 @@ class _CounterViewState extends State<CounterView> {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Welcome Banner
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.85),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFD6E2FF)),
-                ),
-                child: Text(
-                  "$greeting, ${widget.username} 👋",
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1F2A44),
+        child: Stack(
+          children: [
+            // ===== header wavy hijau =====
+            ClipPath(
+              clipper: _HeaderWaveClipper(),
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.45,
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [green1, green2],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                 ),
               ),
+            ),
 
-              const SizedBox(height: 14),
-
-              // Counter Card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.88),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  children: [
-                    const Text("Total Hitungan:"),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${_controller.value}',
-                      style: const TextStyle(
-                        fontSize: 56,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1F2A44),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    TextField(
-                      controller: _stepText,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        hintText: "Step (minimal 1)",
-                        errorText: _stepError,
-                        filled: true,
-                        fillColor: const Color(0xFFF1F5FF),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onChanged: _validateAndSetStep,
-                      onSubmitted: _validateAndSetStep,
-                    ),
-
-                    const SizedBox(height: 8),
-                    Text("Step saat ini: ${_controller.step}"),
-
-                    const SizedBox(height: 18),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        FloatingActionButton(
-                          heroTag: "dec",
-                          onPressed: _isStepValid ? _decrement : null,
-                          child: const Icon(Icons.remove),
-                        ),
-                        const SizedBox(width: 16),
-                        FloatingActionButton(
-                          heroTag: "inc",
-                          onPressed: _isStepValid ? _increment : null,
-                          child: const Icon(Icons.add),
+            // ===== konten =====
+            SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ===== welcome card =====
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: cardWhite.withOpacity(0.92),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 18,
+                          offset: const Offset(0, 10),
                         ),
                       ],
                     ),
-
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: _resetCounter,
-                      child: const Text("Reset"),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-              const Text(
-                "Riwayat (5 terakhir):",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-
-              if (_controller.history.isEmpty)
-                const Text("Belum ada aktivitas.")
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _controller.history.length,
-                  itemBuilder: (context, index) {
-                    final text = _controller.history[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Text(
-                        "• $text",
-                        style: TextStyle(color: _historyColor(text)),
+                    child: Text(
+                      "$greeting, ${widget.username} 👋",
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: titleColor,
                       ),
-                    );
-                  },
-                ),
-            ],
-          ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // ===== counter card =====
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: cardWhite.withOpacity(0.92),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 20,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          "Total Hitungan",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: bodyColor),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          "${_controller.value}",
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 56,
+                            fontWeight: FontWeight.w900,
+                            color: titleColor,
+                          ),
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        // step input
+                        TextField(
+                          controller: _stepText,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1F2A44),
+                          ),
+                          decoration: InputDecoration(
+                            labelText: "Step",
+                            hintText: "Minimal 1",
+                            errorText: _stepError,
+                            filled: true,
+                            fillColor: const Color(0xFFEAF7E5),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(22),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 20,
+                              horizontal: 16,
+                            ),
+                          ),
+                          onChanged: _validateAndSetStep,
+                          onSubmitted: _validateAndSetStep,
+                        ),
+
+
+                        const SizedBox(height: 8),
+                        Text(
+                          "Step saat ini: ${_controller.step}",
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: bodyColor),
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        // +/- buttons 
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _PillIconButton(
+                              icon: Icons.remove,
+                              enabled: _isStepValid,
+                              onTap: _decrement,
+                            ),
+                            const SizedBox(width: 14),
+                            _PillIconButton(
+                              icon: Icons.add,
+                              enabled: _isStepValid,
+                              onTap: _increment,
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        // reset button
+                        SizedBox(
+                          height: 50,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(999),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.10),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton(
+                              onPressed: _resetCounter,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: green2,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
+                              child: const Text(
+                                "Reset",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  const Text(
+                    "Riwayat (5 terakhir)",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: titleColor,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  if (_controller.history.isEmpty)
+                    const Text(
+                      "Belum ada aktivitas.",
+                      style: TextStyle(color: bodyColor),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: cardWhite.withOpacity(0.92),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 16,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: List.generate(_controller.history.length, (i) {
+                          final text = _controller.history[i];
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text("•  "),
+                                Expanded(
+                                  child: Text(
+                                    text,
+                                    style: TextStyle(
+                                      color: _historyColor(text),
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+class _PillIconButton extends StatelessWidget {
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _PillIconButton({
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const titleColor = Color(0xFF1F2A44);
+    const pillBg = Color(0xFFEAF7E5);
+
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: enabled ? onTap : null,
+        child: Container(
+          width: 86,
+          height: 64,
+          decoration: BoxDecoration(
+            color: pillBg,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.10),
+                blurRadius: 16,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Icon(icon, size: 28, color: titleColor),
+        ),
+      ),
+    );
+  }
+}
+
+// wave header
+class _HeaderWaveClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.lineTo(0, size.height - 58);
+
+    path.cubicTo(
+      size.width * 0.22,
+      size.height + 18,
+      size.width * 0.65,
+      size.height - 120,
+      size.width,
+      size.height - 58,
+    );
+
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
