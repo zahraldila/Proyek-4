@@ -48,7 +48,7 @@ class LogController {
     final newLog = LogModel(
       title: title,
       description: desc,
-      date: DateTime.now().toString(),
+      timestamp: DateTime.now().millisecondsSinceEpoch,
     );
 
     logsNotifier.value = [...logsNotifier.value, newLog];
@@ -63,7 +63,7 @@ class LogController {
     current[index] = LogModel(
       title: title,
       description: desc,
-      date: DateTime.now().toString(),
+      timestamp: DateTime.now().millisecondsSinceEpoch,
     );
 
     logsNotifier.value = current;

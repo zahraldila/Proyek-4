@@ -314,7 +314,7 @@ class _LogViewState extends State<LogView> {
                                 title: Text(log.title),
                                 subtitle: Text(log.description),
 
-                                // ✅ Langkah 5: trailing Wrap (Edit & Delete)
+                                // Langkah 5: trailing Wrap (Edit & Delete)
                                 trailing: Wrap(
                                   children: [
                                     IconButton(

@@ -1,29 +1,27 @@
 class LogModel {
   final String title;
-  final String date;
   final String description;
+  final int timestamp; // epoch milliseconds
 
   LogModel({
     required this.title,
-    required this.date,
     required this.description,
+    required this.timestamp,
   });
 
-  // Konversi Map (JSON) -> Object
   factory LogModel.fromMap(Map<String, dynamic> map) {
     return LogModel(
       title: map['title'],
-      date: map['date'],
       description: map['description'],
+      timestamp: map['timestamp'],
     );
   }
 
-  // Konversi Object -> Map (JSON)
   Map<String, dynamic> toMap() {
     return {
       'title': title,
-      'date': date,
       'description': description,
+      'timestamp': timestamp,
     };
   }
 }
