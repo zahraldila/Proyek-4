@@ -11,9 +11,11 @@ class LogModel {
 
   factory LogModel.fromMap(Map<String, dynamic> map) {
     return LogModel(
-      title: map['title'],
-      description: map['description'],
-      timestamp: map['timestamp'],
+      title: map['title'] ?? '',
+      description: map['description'] ?? '',
+      timestamp: map['timestamp'] is int
+          ? map['timestamp']
+          : int.tryParse(map['timestamp'].toString()) ?? 0,
     );
   }
 
