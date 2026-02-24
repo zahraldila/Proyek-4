@@ -44,11 +44,17 @@ class LogController {
   // ==============================
   // CRUD LOGBOOK
   // ==============================
-  Future<void> addLog(String username, String title, String desc) async {
+  Future<void> addLog(
+    String username,
+    String title,
+    String desc,
+    String category,
+  ) async {
     final newLog = LogModel(
       title: title,
       description: desc,
       timestamp: DateTime.now().millisecondsSinceEpoch,
+      category: category,
     );
 
     logsNotifier.value = [...logsNotifier.value, newLog];
@@ -56,7 +62,12 @@ class LogController {
   }
 
   Future<void> updateLog(
-      String username, int index, String title, String desc) async {
+    String username,
+    int index,
+    String title,
+    String desc,
+    String category,
+  ) async {
     final current = List<LogModel>.from(logsNotifier.value);
     if (index < 0 || index >= current.length) return;
 
@@ -64,6 +75,7 @@ class LogController {
       title: title,
       description: desc,
       timestamp: DateTime.now().millisecondsSinceEpoch,
+      category: category,
     );
 
     logsNotifier.value = current;
