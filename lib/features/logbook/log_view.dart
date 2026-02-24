@@ -229,7 +229,7 @@ class _LogViewState extends State<LogView> {
       body: SafeArea(
         child: Stack(
           children: [
-            // header wavy hijau
+            // ===== header wavy hijau =====
             ClipPath(
               clipper: _HeaderWaveClipper(),
               child: Container(
