@@ -16,7 +16,6 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
 
-        // Soft pastel blue theme (punya kamu)
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF7AA7FF),
           brightness: Brightness.light,
