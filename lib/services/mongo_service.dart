@@ -16,9 +16,6 @@ class MongoService {
 
   final String _source = "mongo_service.dart";
 
-  /// ==============================
-  /// SAFE COLLECTION (anti null error)
-  /// ==============================
   Future<DbCollection> _getSafeCollection() async {
     if (_db == null || !_db!.isConnected || _collection == null) {
       await LogHelper.writeLog(
@@ -31,9 +28,6 @@ class MongoService {
     return _collection!;
   }
 
-  /// ==============================
-  /// CONNECT (dengan timeout & guard)
-  /// ==============================
   Future<void> connect() async {
     try {
       if (_db != null && _db!.isConnected) return;
@@ -83,32 +77,30 @@ class MongoService {
     }
   }
 
-  /// ==============================
-  /// READ
-  /// ==============================
-  Future<List<LogModel>> getLogs() async {
+  /// READ: Ambil data dari Cloud berdasarkan teamId
+  Future<List<LogModel>> getLogs(String teamId) async {
     try {
       final collection = await _getSafeCollection();
 
-      final List<Map<String, dynamic>> data = await collection
-          .find()
-          .toList()
-          .timeout(const Duration(seconds: 15));
-
       await LogHelper.writeLog(
-        "DATABASE: Fetch ${data.length} data dari Cloud",
+        "INFO: Fetching data for Team: $teamId",
         source: _source,
         level: 3,
       );
 
-      return data.map((e) => LogModel.fromMap(e)).toList();
+      final List<Map<String, dynamic>> data = await collection
+          .find(where.eq('teamId', teamId))
+          .toList()
+          .timeout(const Duration(seconds: 15));
+
+      return data.map((json) => LogModel.fromMap(json)).toList();
     } on SocketException {
       await LogHelper.writeLog(
         "ERROR: Fetch gagal - SocketException (offline)",
         source: _source,
         level: 1,
       );
-      rethrow; // PENTING: biar UI bisa tampilkan warning offline
+      rethrow;
     } on TimeoutException {
       await LogHelper.writeLog(
         "ERROR: Fetch gagal - TimeoutException",
@@ -118,7 +110,7 @@ class MongoService {
       rethrow;
     } catch (e) {
       await LogHelper.writeLog(
-        "ERROR: Fetch gagal - $e",
+        "ERROR: Fetch Failed - $e",
         source: _source,
         level: 1,
       );
@@ -126,18 +118,30 @@ class MongoService {
     }
   }
 
-  /// ==============================
-  /// CREATE
-  /// ==============================
+  /// CREATE / UPSERT
+  /// Mencegah duplikasi saat background sync dijalankan ulang
   Future<void> insertLog(LogModel log) async {
     try {
       final collection = await _getSafeCollection();
-      await collection
-          .insertOne(log.toMap())
-          .timeout(const Duration(seconds: 15));
+
+      final map = log.toMap();
+      final objectId = map['_id'] as ObjectId;
+
+      await collection.updateOne(
+        where.id(objectId),
+        ModifierBuilder()
+          ..set('title', map['title'])
+          ..set('description', map['description'])
+          ..set('timestamp', map['timestamp'])
+          ..set('category', map['category'])
+          ..set('authorId', map['authorId'])
+          ..set('teamId', map['teamId'])
+          ..set('date', map['date']),
+        upsert: true,
+      ).timeout(const Duration(seconds: 15));
 
       await LogHelper.writeLog(
-        "SUCCESS: '${log.title}' disimpan ke Cloud",
+        "SUCCESS: '${log.title}' disimpan / diupdate ke Cloud",
         source: _source,
         level: 2,
       );
@@ -165,16 +169,18 @@ class MongoService {
     }
   }
 
-  /// ==============================
   /// UPDATE
-  /// ==============================
   Future<void> updateLog(LogModel log) async {
     try {
-      if (log.id == null) throw Exception("ID null, tidak bisa update.");
+      if (log.id == null || log.id!.isEmpty) {
+        throw Exception("ID null/kosong, tidak bisa update.");
+      }
 
       final collection = await _getSafeCollection();
+      final objectId = ObjectId.fromHexString(log.id!);
+
       await collection
-          .replaceOne(where.id(log.id!), log.toMap())
+          .replaceOne(where.id(objectId), log.toMap())
           .timeout(const Duration(seconds: 15));
 
       await LogHelper.writeLog(
@@ -206,12 +212,11 @@ class MongoService {
     }
   }
 
-  /// ==============================
   /// DELETE
-  /// ==============================
   Future<void> deleteLog(ObjectId id) async {
     try {
       final collection = await _getSafeCollection();
+
       await collection
           .remove(where.id(id))
           .timeout(const Duration(seconds: 15));

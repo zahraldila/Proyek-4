@@ -1,119 +1,176 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
-import 'package:mongo_dart/mongo_dart.dart';
+import 'package:hive/hive.dart';
+import 'package:mongo_dart/mongo_dart.dart' show ObjectId;
 
 import 'package:logbook_app_094/features/logbook/models/log_model.dart';
 import 'package:logbook_app_094/helpers/log_helper.dart';
+import 'package:logbook_app_094/services/access_control_service.dart';
 import 'package:logbook_app_094/services/mongo_service.dart';
 
 class LogController {
   final ValueNotifier<List<LogModel>> logsNotifier =
       ValueNotifier<List<LogModel>>([]);
 
+  final Box<LogModel> _myBox = Hive.box<LogModel>('offline_logs');
+
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  String? _activeTeamId;
+
   List<LogModel> get logs => logsNotifier.value;
 
-  /// Ambil data dari Cloud (MongoDB Atlas) lalu update Notifier.
-  /// NOTE: Namanya masih loadFromDisk biar kompatibel dengan LogView kamu,
-  /// tapi fungsinya sebenarnya load dari Cloud.
-  Future<void> loadFromDisk(String username) async {
-    const source = "log_controller.dart";
+  void startBackgroundSync(String teamId) {
+    _activeTeamId = teamId;
+    _connectivitySubscription?.cancel();
 
-    try {
-      // Optional guard: batasi waktu ambil data biar UX enak
-      final cloudData = await MongoService()
-          .getLogs()
-          .timeout(const Duration(seconds: 15));
+    _connectivitySubscription =
+        Connectivity().onConnectivityChanged.listen((results) async {
+      final isOnline = !results.contains(ConnectivityResult.none);
 
-      logsNotifier.value = cloudData;
-
-      await LogHelper.writeLog(
-        "CONTROLLER: loadFromDisk() -> ${cloudData.length} data dari Cloud",
-        source: source,
-        level: 3,
-      );
-    } on SocketException {
-      await LogHelper.writeLog(
-        "ERROR: loadFromDisk() -> SocketException (offline)",
-        source: source,
-        level: 1,
-      );
-      rethrow;
-    } on TimeoutException {
-      await LogHelper.writeLog(
-        "ERROR: loadFromDisk() -> TimeoutException",
-        source: source,
-        level: 1,
-      );
-      rethrow;
-    } catch (e) {
-      await LogHelper.writeLog(
-        "ERROR: loadFromDisk() -> $e",
-        source: source,
-        level: 1,
-      );
-      rethrow;
-    }
+      if (isOnline) {
+        await syncPendingLogs(teamId);
+      }
+    });
   }
 
-  Future<void> addLog(
-    String username,
-    String title,
-    String desc,
-    String category,
-  ) async {
-    const source = "log_controller.dart";
+  void dispose() {
+    _connectivitySubscription?.cancel();
+  }
 
-    final newLog = LogModel(
-      id: ObjectId(),
-      title: title,
-      description: desc,
-      timestamp: DateTime.now().millisecondsSinceEpoch,
-      category: category,
-    );
+  Future<void> loadLogs(String teamId) async {
+    const source = "log_controller.dart";
+    _activeTeamId = teamId;
+
+    logsNotifier.value =
+        _myBox.values.where((log) => log.teamId == teamId).toList();
 
     try {
-      await MongoService()
-          .insertLog(newLog)
-          .timeout(const Duration(seconds: 15));
+      final cloudData = await MongoService().getLogs(teamId);
 
-      // Update state lokal setelah cloud sukses
-      final current = List<LogModel>.from(logsNotifier.value);
-      current.add(newLog);
-      logsNotifier.value = current;
+      final localUnsynced = _myBox.values
+          .where((log) => log.teamId == teamId && !log.isSynced)
+          .toList();
+
+      final allLocal = _myBox.values.toList();
+      final sameTeamIndexes = <int>[];
+
+      for (int i = 0; i < allLocal.length; i++) {
+        if (allLocal[i].teamId == teamId) {
+          sameTeamIndexes.add(i);
+        }
+      }
+
+      for (int i = sameTeamIndexes.length - 1; i >= 0; i--) {
+        await _myBox.deleteAt(sameTeamIndexes[i]);
+      }
+
+      final mergedLogs = <LogModel>[
+        ...cloudData.map((log) => log.copyWith(isSynced: true)),
+        ...localUnsynced,
+      ];
+
+      await _myBox.addAll(mergedLogs);
+
+      logsNotifier.value =
+          _myBox.values.where((log) => log.teamId == teamId).toList();
 
       await LogHelper.writeLog(
-        "SUCCESS: Tambah '${newLog.title}' berhasil",
+        "SYNC: Data berhasil diperbarui dari Atlas",
         source: source,
         level: 2,
       );
     } on SocketException {
       await LogHelper.writeLog(
-        "ERROR: Add -> SocketException (offline)",
+        "OFFLINE: Menggunakan data cache lokal",
         source: source,
-        level: 1,
+        level: 2,
       );
-      rethrow;
     } on TimeoutException {
       await LogHelper.writeLog(
-        "ERROR: Add -> TimeoutException",
+        "OFFLINE: Menggunakan data cache lokal",
         source: source,
-        level: 1,
+        level: 2,
       );
-      rethrow;
     } catch (e) {
       await LogHelper.writeLog(
-        "ERROR: Gagal sinkronisasi Add - $e",
+        "ERROR: loadLogs() -> $e",
         source: source,
         level: 1,
       );
-      rethrow;
+    }
+  }
+
+  Future<void> loadFromDisk(String username) async {
+    logsNotifier.value = _myBox.values.toList();
+  }
+
+  Future<void> addLog(
+    String title,
+    String desc,
+    String category,
+    String authorId,
+    String teamId,
+  ) async {
+    const source = "log_controller.dart";
+
+    final newLog = LogModel(
+      id: ObjectId().oid,
+      title: title,
+      description: desc,
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+      category: category,
+      authorId: authorId,
+      teamId: teamId,
+      isSynced: false,
+    );
+
+    await _myBox.add(newLog);
+
+    logsNotifier.value =
+        _myBox.values.where((log) => log.teamId == teamId).toList();
+
+    await LogHelper.writeLog(
+      "LOCAL SAVE: '${newLog.title}' tersimpan di Hive",
+      source: source,
+      level: 2,
+    );
+
+    try {
+      await MongoService().insertLog(newLog);
+
+      final allLocal = _myBox.values.toList();
+      final hiveIndex = allLocal.indexWhere((log) => log.id == newLog.id);
+
+      if (hiveIndex != -1) {
+        await _myBox.putAt(
+          hiveIndex,
+          newLog.copyWith(isSynced: true),
+        );
+      }
+
+      logsNotifier.value =
+          _myBox.values.where((log) => log.teamId == teamId).toList();
+
+      await LogHelper.writeLog(
+        "SUCCESS: Data tersinkron ke Cloud",
+        source: source,
+        level: 2,
+      );
+    } catch (e) {
+      await LogHelper.writeLog(
+        "WARNING: Data tersimpan lokal, akan sinkron saat online",
+        source: source,
+        level: 1,
+      );
     }
   }
 
   Future<void> updateLog(
-    String username,
+    String currentUserId,
+    String currentUserRole,
     int index,
     String newTitle,
     String newDesc,
@@ -125,46 +182,89 @@ class LogController {
     if (index < 0 || index >= current.length) return;
 
     final oldLog = current[index];
+    final bool isOwner = oldLog.authorId == currentUserId;
+
+    if (!AccessControlService.canPerform(
+      currentUserRole,
+      AccessControlService.actionUpdate,
+      isOwner: isOwner,
+    )) {
+      await LogHelper.writeLog(
+        "SECURITY BREACH: Unauthorized update attempt on '${oldLog.title}' by user=$currentUserId role=$currentUserRole",
+        source: source,
+        level: 1,
+      );
+      return;
+    }
 
     final updatedLog = oldLog.copyWith(
-      // ID harus tetap sama
       title: newTitle,
       description: newDesc,
       category: newCategory,
       timestamp: DateTime.now().millisecondsSinceEpoch,
+      isSynced: false,
     );
 
     try {
-      await MongoService()
-          .updateLog(updatedLog)
-          .timeout(const Duration(seconds: 15));
+      final allLocal = _myBox.values.toList();
+      final hiveIndex = allLocal.indexWhere((log) {
+        if (oldLog.id != null && log.id != null) {
+          return log.id == oldLog.id;
+        }
+        return log.title == oldLog.title &&
+            log.description == oldLog.description &&
+            log.timestamp == oldLog.timestamp &&
+            log.authorId == oldLog.authorId;
+      });
 
-      // Sukses cloud -> baru update UI
+      if (hiveIndex != -1) {
+        await _myBox.putAt(hiveIndex, updatedLog);
+      }
+
       current[index] = updatedLog;
       logsNotifier.value = current;
 
       await LogHelper.writeLog(
-        "SUCCESS: Update '${oldLog.title}' -> '${updatedLog.title}'",
+        "LOCAL UPDATE: '${oldLog.title}' -> '${updatedLog.title}' tersimpan di Hive",
         source: source,
         level: 2,
       );
-    } on SocketException {
-      await LogHelper.writeLog(
-        "ERROR: Update -> SocketException (offline)",
-        source: source,
-        level: 1,
-      );
-      rethrow;
-    } on TimeoutException {
-      await LogHelper.writeLog(
-        "ERROR: Update -> TimeoutException",
-        source: source,
-        level: 1,
-      );
-      rethrow;
+
+      try {
+        await MongoService().updateLog(updatedLog);
+
+        if (hiveIndex != -1) {
+          await _myBox.putAt(
+            hiveIndex,
+            updatedLog.copyWith(isSynced: true),
+          );
+        }
+
+        logsNotifier.value = _myBox.values
+            .where((log) => log.teamId == oldLog.teamId)
+            .toList();
+
+        await LogHelper.writeLog(
+          "SUCCESS: Update '${updatedLog.title}' berhasil sinkron ke Cloud",
+          source: source,
+          level: 2,
+        );
+      } on SocketException {
+        await LogHelper.writeLog(
+          "WARNING: Update tersimpan lokal, cloud sync pending",
+          source: source,
+          level: 1,
+        );
+      } on TimeoutException {
+        await LogHelper.writeLog(
+          "WARNING: Update timeout, cloud sync pending",
+          source: source,
+          level: 1,
+        );
+      }
     } catch (e) {
       await LogHelper.writeLog(
-        "ERROR: Gagal sinkronisasi Update - $e",
+        "ERROR: Gagal updateLog() - $e",
         source: source,
         level: 1,
       );
@@ -172,53 +272,133 @@ class LogController {
     }
   }
 
-  Future<void> removeLog(String username, int index) async {
+  Future<void> removeLog(
+    String currentUserId,
+    String currentUserRole,
+    int index,
+  ) async {
     const source = "log_controller.dart";
 
     final current = List<LogModel>.from(logsNotifier.value);
     if (index < 0 || index >= current.length) return;
 
     final targetLog = current[index];
+    final bool isOwner = targetLog.authorId == currentUserId;
+
+    if (!AccessControlService.canPerform(
+      currentUserRole,
+      AccessControlService.actionDelete,
+      isOwner: isOwner,
+    )) {
+      await LogHelper.writeLog(
+        "SECURITY BREACH: Unauthorized delete attempt on '${targetLog.title}' by user=$currentUserId role=$currentUserRole",
+        source: source,
+        level: 1,
+      );
+      return;
+    }
 
     try {
-      if (targetLog.id == null) {
-        throw Exception("ID Log tidak ditemukan, tidak bisa delete di Cloud.");
+      final allLocal = _myBox.values.toList();
+      final hiveIndex = allLocal.indexWhere((log) {
+        if (targetLog.id != null && log.id != null) {
+          return log.id == targetLog.id;
+        }
+        return log.title == targetLog.title &&
+            log.description == targetLog.description &&
+            log.timestamp == targetLog.timestamp &&
+            log.authorId == targetLog.authorId;
+      });
+
+      if (hiveIndex != -1) {
+        await _myBox.deleteAt(hiveIndex);
       }
 
-      await MongoService()
-          .deleteLog(targetLog.id!)
-          .timeout(const Duration(seconds: 15));
-
-      // Sukses cloud -> baru hapus di UI
       current.removeAt(index);
       logsNotifier.value = current;
 
       await LogHelper.writeLog(
-        "SUCCESS: Hapus '${targetLog.title}' berhasil",
+        "LOCAL DELETE: '${targetLog.title}' dihapus dari Hive",
         source: source,
         level: 2,
       );
-    } on SocketException {
-      await LogHelper.writeLog(
-        "ERROR: Delete -> SocketException (offline)",
-        source: source,
-        level: 1,
-      );
-      rethrow;
-    } on TimeoutException {
-      await LogHelper.writeLog(
-        "ERROR: Delete -> TimeoutException",
-        source: source,
-        level: 1,
-      );
-      rethrow;
+
+      if (targetLog.id != null) {
+        try {
+          await MongoService().deleteLog(ObjectId.fromHexString(targetLog.id!));
+
+          await LogHelper.writeLog(
+            "SUCCESS: Hapus '${targetLog.title}' berhasil sinkron ke Cloud",
+            source: source,
+            level: 2,
+          );
+        } on SocketException {
+          await LogHelper.writeLog(
+            "WARNING: Delete lokal sukses, hapus cloud pending",
+            source: source,
+            level: 1,
+          );
+        } on TimeoutException {
+          await LogHelper.writeLog(
+            "WARNING: Delete timeout, hapus cloud pending",
+            source: source,
+            level: 1,
+          );
+        }
+      } else {
+        await LogHelper.writeLog(
+          "INFO: Log belum punya id cloud, hanya dihapus lokal",
+          source: source,
+          level: 2,
+        );
+      }
     } catch (e) {
       await LogHelper.writeLog(
-        "ERROR: Gagal sinkronisasi Hapus - $e",
+        "ERROR: Gagal removeLog() - $e",
         source: source,
         level: 1,
       );
       rethrow;
+    }
+  }
+
+  Future<void> syncPendingLogs(String teamId) async {
+    const source = "log_controller.dart";
+
+    try {
+      final allLocal = _myBox.values.toList();
+
+      for (int i = 0; i < allLocal.length; i++) {
+        final log = allLocal[i];
+
+        if (log.teamId == teamId && !log.isSynced) {
+          try {
+            await MongoService().insertLog(log);
+
+            await _myBox.putAt(
+              i,
+              log.copyWith(isSynced: true),
+            );
+          } catch (_) {
+            // biarkan, nanti dicoba lagi saat koneksi pulih
+          }
+        }
+      }
+
+      logsNotifier.value =
+          _myBox.values.where((log) => log.teamId == teamId).toList();
+
+      await LogHelper.writeLog(
+        "BACKGROUND SYNC: Sinkronisasi pending logs selesai",
+        source: source,
+        level: 2,
+      );
+    } catch (e) {
+      await LogHelper.writeLog(
+        "BACKGROUND SYNC ERROR: $e",
+        source: source,
+        level: 1,
+      );
     }
   }
 }

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:logbook_app_094/features/onboarding/onboarding_view.dart';
+import 'package:logbook_app_094/features/logbook/models/log_model.dart';
 import 'package:logbook_app_094/services/mongo_service.dart';
 import 'package:logbook_app_094/helpers/log_helper.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,34 +14,34 @@ Future<void> main() async {
   // 1) Load ENV
   await dotenv.load(fileName: ".env");
 
-  // 2) Handshake MongoDB (connect sebelum UI)
-const source = "main.dart";
+  // 2) Inisialisasi Hive
+  await Hive.initFlutter();
+  Hive.registerAdapter(LogModelAdapter());
+  await Hive.openBox<LogModel>('offline_logs');
 
-// LEVEL 3 (VERBOSE)
-await LogHelper.writeLog(
-  "Boot: (Level 3) Mulai proses handshake MongoDB...",
-  source: source,
-  level: 3,
-);
+  // 3) Handshake MongoDB
+  const source = "main.dart";
 
-try {
-  await MongoService().connect();
-
-  // LEVEL 2 (INFO)
   await LogHelper.writeLog(
-    "Boot: (Level 2) MongoDB CONNECTED ✅",
+    "Boot: (Level 3) Mulai proses handshake MongoDB...",
     source: source,
-    level: 2,
+    level: 3,
   );
 
-} catch (e) {
+  try {
+    await MongoService().connect();
 
-  // LEVEL 1 (ERROR)
-  await LogHelper.writeLog(
-    "Boot: (Level 1) MongoDB FAILED ❌ -> $e",
-    source: source,
-    level: 1,
-  );
+    await LogHelper.writeLog(
+      "Boot: (Level 2) MongoDB CONNECTED ✅",
+      source: source,
+      level: 2,
+    );
+  } catch (e) {
+    await LogHelper.writeLog(
+      "Boot: (Level 1) MongoDB FAILED ❌ -> $e",
+      source: source,
+      level: 1,
+    );
   }
 
   runApp(const MyApp());

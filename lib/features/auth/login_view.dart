@@ -55,14 +55,20 @@ class _LoginViewState extends State<LoginView> {
 
     if (user.isEmpty || pass.isEmpty) {
       setState(() => _failedAttempts++);
-    } else if (_controller.login(user, pass)) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => LogView(username: user)),
-      );
-      return;
     } else {
-      setState(() => _failedAttempts++);
+      final userData = _controller.login(user, pass);
+
+      if (userData != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => LogView(currentUser: userData),
+          ),
+        );
+        return;
+      } else {
+        setState(() => _failedAttempts++);
+      }
     }
 
     if (_failedAttempts >= 3) {
@@ -79,9 +85,7 @@ class _LoginViewState extends State<LoginView> {
     const titleColor = Color(0xFF1F2A44);
     const bodyColor = Color(0xFF4A5A7A);
 
-    const fieldFill = Color(0xFFEAF7E5); 
-
-    // error bar
+    const fieldFill = Color(0xFFEAF7E5);
     const errorRed = Color(0xFFB23A55);
 
     return Scaffold(
@@ -89,7 +93,6 @@ class _LoginViewState extends State<LoginView> {
       body: SafeArea(
         child: Stack(
           children: [
-            // ===== header wavy hijau =====
             ClipPath(
               clipper: _HeaderWaveClipper(),
               child: Container(
@@ -104,15 +107,12 @@ class _LoginViewState extends State<LoginView> {
                 ),
               ),
             ),
-
-            // ===== Center content =====
             Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // card
                     Container(
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
@@ -144,13 +144,12 @@ class _LoginViewState extends State<LoginView> {
                           ),
                           const SizedBox(height: 16),
 
-                          // username
                           TextField(
                             controller: _userController,
                             decoration: InputDecoration(
                               labelText: "Username",
                               filled: true,
-                              fillColor: fieldFill, 
+                              fillColor: fieldFill,
                               prefixIcon: const Icon(Icons.person_outline),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
@@ -160,7 +159,6 @@ class _LoginViewState extends State<LoginView> {
                           ),
                           const SizedBox(height: 12),
 
-                          // password
                           TextField(
                             controller: _passController,
                             obscureText: _obscure,
@@ -168,7 +166,7 @@ class _LoginViewState extends State<LoginView> {
                             decoration: InputDecoration(
                               labelText: "Password",
                               filled: true,
-                              fillColor: fieldFill, // ✅ hijau muda
+                              fillColor: fieldFill,
                               prefixIcon: const Icon(Icons.lock_outline),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
@@ -177,16 +175,17 @@ class _LoginViewState extends State<LoginView> {
                               suffixIcon: IconButton(
                                 onPressed: () =>
                                     setState(() => _obscure = !_obscure),
-                                icon: Icon(_obscure
-                                    ? Icons.visibility
-                                    : Icons.visibility_off),
+                                icon: Icon(
+                                  _obscure
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                ),
                               ),
                             ),
                           ),
 
                           const SizedBox(height: 16),
 
-                          // lock info
                           if (_locked)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 10),
@@ -200,7 +199,6 @@ class _LoginViewState extends State<LoginView> {
                               ),
                             ),
 
-                          // button 
                           SizedBox(
                             height: 52,
                             child: DecoratedBox(
@@ -218,8 +216,7 @@ class _LoginViewState extends State<LoginView> {
                                 onPressed: _locked ? null : _handleLogin,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: green2,
-                                  disabledBackgroundColor:
-                                      Colors.grey.shade300,
+                                  disabledBackgroundColor: Colors.grey.shade300,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(999),
@@ -256,7 +253,6 @@ class _LoginViewState extends State<LoginView> {
                       ),
                     ),
 
-                    // error bar bawah
                     if (_failedAttempts > 0 && !_locked)
                       Container(
                         margin: const EdgeInsets.only(top: 16),
@@ -288,7 +284,6 @@ class _LoginViewState extends State<LoginView> {
   }
 }
 
-// Wave untuk header login
 class _HeaderWaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
