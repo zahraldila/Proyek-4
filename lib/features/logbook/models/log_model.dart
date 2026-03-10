@@ -26,9 +26,11 @@ class LogModel {
   @HiveField(6)
   final String teamId;
 
-  // 🔵 Status sinkronisasi cloud
   @HiveField(7, defaultValue: false)
   final bool isSynced;
+
+  @HiveField(8, defaultValue: false)
+  final bool isPublic;
 
   LogModel({
     this.id,
@@ -39,12 +41,10 @@ class LogModel {
     required this.authorId,
     required this.teamId,
     required this.isSynced,
+    required this.isPublic,
   });
 
-  /// Dipakai UI lama kamu
   DateTime get date => DateTime.fromMillisecondsSinceEpoch(timestamp);
-
-  /// Alias biar tetap cocok dengan kode log_view.dart
   DateTime get createdAt => date;
 
   Map<String, dynamic> toMap() {
@@ -58,6 +58,7 @@ class LogModel {
       'teamId': teamId,
       'date': date.toIso8601String(),
       'isSynced': isSynced,
+      'isPublic': isPublic,
     };
   }
 
@@ -91,7 +92,8 @@ class LogModel {
       category: (map['category'] ?? 'Pribadi').toString(),
       authorId: (map['authorId'] ?? 'unknown_user').toString(),
       teamId: (map['teamId'] ?? 'no_team').toString(),
-      isSynced: map['isSynced'] ?? true,
+      isSynced: map['isSynced'] ?? false,
+      isPublic: map['isPublic'] ?? false,
     );
   }
 
@@ -104,6 +106,7 @@ class LogModel {
     String? authorId,
     String? teamId,
     bool? isSynced,
+    bool? isPublic,
   }) {
     return LogModel(
       id: id ?? this.id,
@@ -114,6 +117,7 @@ class LogModel {
       authorId: authorId ?? this.authorId,
       teamId: teamId ?? this.teamId,
       isSynced: isSynced ?? this.isSynced,
+      isPublic: isPublic ?? this.isPublic,
     );
   }
 }

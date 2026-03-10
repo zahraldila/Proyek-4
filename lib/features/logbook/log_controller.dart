@@ -8,7 +8,6 @@ import 'package:mongo_dart/mongo_dart.dart' show ObjectId;
 
 import 'package:logbook_app_094/features/logbook/models/log_model.dart';
 import 'package:logbook_app_094/helpers/log_helper.dart';
-import 'package:logbook_app_094/services/access_control_service.dart';
 import 'package:logbook_app_094/services/mongo_service.dart';
 
 class LogController {
@@ -113,6 +112,7 @@ class LogController {
     String category,
     String authorId,
     String teamId,
+    bool isPublic,
   ) async {
     const source = "log_controller.dart";
 
@@ -125,6 +125,7 @@ class LogController {
       authorId: authorId,
       teamId: teamId,
       isSynced: false,
+      isPublic: isPublic,
     );
 
     await _myBox.add(newLog);
@@ -175,6 +176,7 @@ class LogController {
     String newTitle,
     String newDesc,
     String newCategory,
+    bool newIsPublic,
   ) async {
     const source = "log_controller.dart";
 
@@ -184,11 +186,7 @@ class LogController {
     final oldLog = current[index];
     final bool isOwner = oldLog.authorId == currentUserId;
 
-    if (!AccessControlService.canPerform(
-      currentUserRole,
-      AccessControlService.actionUpdate,
-      isOwner: isOwner,
-    )) {
+    if (!isOwner) {
       await LogHelper.writeLog(
         "SECURITY BREACH: Unauthorized update attempt on '${oldLog.title}' by user=$currentUserId role=$currentUserRole",
         source: source,
@@ -203,6 +201,7 @@ class LogController {
       category: newCategory,
       timestamp: DateTime.now().millisecondsSinceEpoch,
       isSynced: false,
+      isPublic: newIsPublic,
     );
 
     try {
@@ -285,11 +284,7 @@ class LogController {
     final targetLog = current[index];
     final bool isOwner = targetLog.authorId == currentUserId;
 
-    if (!AccessControlService.canPerform(
-      currentUserRole,
-      AccessControlService.actionDelete,
-      isOwner: isOwner,
-    )) {
+    if (!isOwner) {
       await LogHelper.writeLog(
         "SECURITY BREACH: Unauthorized delete attempt on '${targetLog.title}' by user=$currentUserId role=$currentUserRole",
         source: source,

@@ -28,6 +28,7 @@ class _LogEditorPageState extends State<LogEditorPage> {
 
   final List<String> _categories = const ["Pekerjaan", "Pribadi", "Urgent"];
   late String _selectedCategory;
+  late bool _isPublic;
 
   @override
   void initState() {
@@ -36,6 +37,7 @@ class _LogEditorPageState extends State<LogEditorPage> {
     _titleController = TextEditingController(text: widget.log?.title ?? '');
     _descController = TextEditingController(text: widget.log?.description ?? '');
     _selectedCategory = widget.log?.category ?? "Pribadi";
+    _isPublic = widget.log?.isPublic ?? false;
 
     _descController.addListener(() {
       setState(() {});
@@ -64,6 +66,7 @@ class _LogEditorPageState extends State<LogEditorPage> {
           _selectedCategory,
           widget.currentUser['uid'],
           widget.currentUser['teamId'],
+          _isPublic,
         );
       } else {
         await widget.controller.updateLog(
@@ -73,6 +76,7 @@ class _LogEditorPageState extends State<LogEditorPage> {
           title,
           desc,
           _selectedCategory,
+          _isPublic,
         );
       }
 
@@ -170,6 +174,20 @@ class _LogEditorPageState extends State<LogEditorPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text("Publikasikan ke tim"),
+                    subtitle: Text(
+                      _isPublic
+                          ? "Catatan bisa dilihat anggota tim lain"
+                          : "Catatan hanya bisa dilihat oleh Anda",
+                    ),
+                    value: _isPublic,
+                    onChanged: (value) {
+                      setState(() => _isPublic = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: _titleController,
                     decoration: InputDecoration(
@@ -199,7 +217,6 @@ class _LogEditorPageState extends State<LogEditorPage> {
                 ],
               ),
             ),
-
             Container(
               width: double.infinity,
               color: Colors.white,

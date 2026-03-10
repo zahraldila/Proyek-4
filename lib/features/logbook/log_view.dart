@@ -11,7 +11,6 @@ import 'package:logbook_app_094/features/logbook/models/log_model.dart';
 import 'package:logbook_app_094/features/onboarding/onboarding_view.dart';
 import 'package:logbook_app_094/helpers/log_helper.dart';
 import 'package:logbook_app_094/services/mongo_service.dart';
-import 'package:logbook_app_094/services/access_policy.dart';
 
 class LogView extends StatefulWidget {
   final dynamic currentUser;
@@ -253,7 +252,7 @@ class _LogViewState extends State<LogView> {
             ),
             const SizedBox(height: 16),
             Text(
-              isSearching ? "Tidak ada catatan yang cocok" : "Belum ada catatan",
+              isSearching ? "Tidak ada catatan yang cocok" : "Belum ada catatan yang bisa dilihat",
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 18,
@@ -492,11 +491,7 @@ class _LogViewState extends State<LogView> {
     const cardWhite = Color(0xFFFFFFFF);
 
     final greeting = _getGreeting();
-    final String currentRole = widget.currentUser['role'] ?? 'Anggota';
-
-    final bool canCreate = AccessPolicy.canCreate(
-      currentUserRole: currentRole,
-    );
+    final bool canCreate = true;
 
     return Scaffold(
       backgroundColor: bg,
@@ -656,9 +651,15 @@ class _LogViewState extends State<LogView> {
                               );
                             }
 
+                            final visibleLogs = currentLogs.where((log) {
+                              final isOwner =
+                                  log.authorId == widget.currentUser['uid'];
+                              return isOwner || log.isPublic == true;
+                            }).toList();
+
                             final filteredLogs = query.isEmpty
-                                ? currentLogs
-                                : currentLogs
+                                ? visibleLogs
+                                : visibleLogs
                                     .where(
                                       (log) =>
                                           log.title.toLowerCase().contains(query),
@@ -682,17 +683,10 @@ class _LogViewState extends State<LogView> {
                                   final realIndex = currentLogs.indexOf(log);
                                   final accent = _categoryAccent(log.category);
 
-                                  final bool canUpdate = AccessPolicy.canEdit(
-                                    currentUserId: widget.currentUser['uid'],
-                                    currentUserRole: widget.currentUser['role'],
-                                    authorId: log.authorId,
-                                  );
-
-                                  final bool canDelete = AccessPolicy.canDelete(
-                                    currentUserId: widget.currentUser['uid'],
-                                    currentUserRole: widget.currentUser['role'],
-                                    authorId: log.authorId,
-                                  );
+                                  final bool isOwner =
+                                      log.authorId == widget.currentUser['uid'];
+                                  final bool canUpdate = isOwner;
+                                  final bool canDelete = isOwner;
 
                                   return Dismissible(
                                     key: ValueKey(
@@ -780,6 +774,33 @@ class _LogViewState extends State<LogView> {
                                                 fontSize: 12,
                                                 color: Colors.grey[600],
                                               ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  log.isPublic
+                                                      ? Icons.public
+                                                      : Icons.lock,
+                                                  size: 16,
+                                                  color: log.isPublic
+                                                      ? Colors.blue
+                                                      : Colors.grey,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  log.isPublic
+                                                      ? "Public"
+                                                      : "Private",
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: log.isPublic
+                                                        ? Colors.blue
+                                                        : Colors.grey[700],
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                             const SizedBox(height: 4),
                                             Row(
