@@ -41,7 +41,6 @@ class _LogViewState extends State<LogView> {
     });
 
     _controller.startBackgroundSync(widget.currentUser['teamId']);
-
     Future.microtask(() => _initDatabase());
   }
 
@@ -66,29 +65,11 @@ class _LogViewState extends State<LogView> {
         level: 3,
       );
 
-      await LogHelper.writeLog(
-        "UI: Menghubungi MongoService.connect()...",
-        source: source,
-        level: 3,
-      );
-
       await MongoService().connect().timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw TimeoutException(
           "Koneksi Cloud Timeout. Periksa sinyal / IP Whitelist (0.0.0.0/0).",
         ),
-      );
-
-      await LogHelper.writeLog(
-        "UI: Koneksi MongoService BERHASIL.",
-        source: source,
-        level: 2,
-      );
-
-      await LogHelper.writeLog(
-        "UI: Memanggil controller.loadLogs(teamId)...",
-        source: source,
-        level: 3,
       );
 
       await _controller.loadLogs(widget.currentUser['teamId']);
@@ -146,15 +127,7 @@ class _LogViewState extends State<LogView> {
   }
 
   Future<void> _refreshFromCloud() async {
-    const source = "log_view.dart";
-
     try {
-      await LogHelper.writeLog(
-        "UI: Pull-to-refresh dipanggil",
-        source: source,
-        level: 3,
-      );
-
       await MongoService().connect().timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw TimeoutException("timeout"),
@@ -211,26 +184,123 @@ class _LogViewState extends State<LogView> {
 
   Color _categoryAccent(String category) {
     switch (category) {
-      case "Pekerjaan":
+      case "Mechanical":
+        return Colors.green;
+      case "Electronic":
         return Colors.blue;
+      case "Software":
+        return Colors.deepPurple;
+      case "Pekerjaan":
+        return Colors.green;
       case "Urgent":
-        return Colors.red;
+        return Colors.blue;
       case "Pribadi":
+        return Colors.deepPurple;
       default:
-        return Colors.orange;
+        return Colors.grey;
     }
   }
 
   IconData _categoryIcon(String category) {
     switch (category) {
+      case "Mechanical":
+        return Icons.precision_manufacturing_rounded;
+      case "Electronic":
+        return Icons.memory_rounded;
+      case "Software":
+        return Icons.code_rounded;
       case "Pekerjaan":
-        return Icons.work_rounded;
+        return Icons.precision_manufacturing_rounded;
       case "Urgent":
-        return Icons.warning_rounded;
+        return Icons.memory_rounded;
       case "Pribadi":
+        return Icons.code_rounded;
       default:
-        return Icons.person_rounded;
+        return Icons.category_rounded;
     }
+  }
+
+  Widget _buildCategoryChip({
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: color.withOpacity(0.18),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniBadge({
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: color.withOpacity(0.18),
+        ),
+      ),
+      child: Icon(icon, size: 15, color: color),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: IconButton(
+        splashRadius: 18,
+        padding: EdgeInsets.zero,
+        icon: Icon(icon, color: color, size: 20),
+        onPressed: onTap,
+      ),
+    );
+  }
+
+  Widget _buildTopActionIcon({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      width: 42,
+      height: 42,
+      margin: const EdgeInsets.only(right: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: IconButton(
+        onPressed: onTap,
+        icon: Icon(icon, color: color, size: 22),
+      ),
+    );
   }
 
   Widget _buildEmptyState({
@@ -241,41 +311,60 @@ class _LogViewState extends State<LogView> {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isSearching ? Icons.search_off_rounded : Icons.auto_stories_rounded,
-              size: 100,
-              color: bodyColor.withOpacity(0.35),
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.78),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Icon(
+                isSearching ? Icons.search_off_rounded : Icons.auto_stories_rounded,
+                size: 58,
+                color: bodyColor.withOpacity(0.55),
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Text(
-              isSearching ? "Tidak ada catatan yang cocok" : "Belum ada catatan yang bisa dilihat",
+              isSearching
+                  ? "Tidak ada catatan yang cocok"
+                  : "Belum ada aktivitas hari ini",
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
                 color: bodyColor,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               isSearching
-                  ? "Coba gunakan kata kunci lain ya 🔎"
-                  : "Tekan tombol + untuk menambah catatan pertamamu ✍️",
+                  ? "Coba gunakan kata kunci lain pada judul atau isi catatan."
+                  : "Mulai catat kemajuan proyek Anda agar aktivitas tim lebih rapi dan mudah dipantau.",
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: bodyColor.withOpacity(0.85),
-                height: 1.3,
+                color: bodyColor.withOpacity(0.82),
+                height: 1.45,
+                fontSize: 14,
               ),
             ),
             if (!isSearching && canCreate) ...[
-              const SizedBox(height: 16),
-              ElevatedButton(
+              const SizedBox(height: 18),
+              ElevatedButton.icon(
                 onPressed: () => _goToEditor(),
-                child: const Text("Buat Catatan Pertama"),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text("Buat Catatan Pertama"),
               ),
             ],
           ],
@@ -491,36 +580,47 @@ class _LogViewState extends State<LogView> {
     const cardWhite = Color(0xFFFFFFFF);
 
     final greeting = _getGreeting();
-    final bool canCreate = true;
+    const bool canCreate = true;
 
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
+        toolbarHeight: 62,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text(
-          "LogBook: ${widget.currentUser['username']}",
-          style: const TextStyle(
+        titleSpacing: 12,
+        title: const Text(
+          "LogBook",
+          style: TextStyle(
             color: titleColor,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w900,
+            fontSize: 20,
           ),
         ),
-        iconTheme: const IconThemeData(color: titleColor),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => _controller.loadLogs(widget.currentUser['teamId']),
+          _buildTopActionIcon(
+            icon: Icons.refresh_rounded,
+            color: Colors.green,
+            onTap: () => _controller.loadLogs(widget.currentUser['teamId']),
           ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _confirmLogout,
+          _buildTopActionIcon(
+            icon: Icons.logout_rounded,
+            color: Colors.red,
+            onTap: _confirmLogout,
           ),
+          const SizedBox(width: 8),
         ],
       ),
       floatingActionButton: canCreate
           ? FloatingActionButton(
+              backgroundColor: const Color(0xFFDCE4FF),
+              foregroundColor: const Color(0xFF1F2A44),
+              elevation: 8,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
               onPressed: () => _goToEditor(),
-              child: const Icon(Icons.add),
+              child: const Icon(Icons.add_rounded, size: 28),
             )
           : null,
       body: SafeArea(
@@ -529,7 +629,7 @@ class _LogViewState extends State<LogView> {
             ClipPath(
               clipper: _HeaderWaveClipper(),
               child: Container(
-                height: MediaQuery.of(context).size.height * 0.35,
+                height: MediaQuery.of(context).size.height * 0.28,
                 width: double.infinity,
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -541,20 +641,20 @@ class _LogViewState extends State<LogView> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                     decoration: BoxDecoration(
-                      color: cardWhite.withOpacity(0.92),
-                      borderRadius: BorderRadius.circular(20),
+                      color: cardWhite.withOpacity(0.93),
+                      borderRadius: BorderRadius.circular(22),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 18,
-                          offset: const Offset(0, 10),
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
                         ),
                       ],
                     ),
@@ -577,55 +677,104 @@ class _LogViewState extends State<LogView> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: "Cari berdasarkan judul...",
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: ValueListenableBuilder<String>(
-                        valueListenable: _queryNotifier,
-                        builder: (context, q, _) {
-                          if (q.isEmpty) return const SizedBox.shrink();
-                          return IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () {
-                              _searchController.clear();
-                              _queryNotifier.value = '';
-                            },
-                          );
-                        },
-                      ),
-                      filled: true,
-                      fillColor: cardWhite.withOpacity(0.92),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: cardWhite.withOpacity(0.93),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
                     ),
-                    onChanged: (text) =>
-                        _queryNotifier.value = text.trim().toLowerCase(),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: "Cari judul atau isi catatan...",
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: ValueListenableBuilder<String>(
+                          valueListenable: _queryNotifier,
+                          builder: (context, q, _) {
+                            if (q.isEmpty) return const SizedBox.shrink();
+                            return IconButton(
+                              icon: const Icon(Icons.close_rounded),
+                              onPressed: () {
+                                _searchController.clear();
+                                _queryNotifier.value = '';
+                              },
+                            );
+                          },
+                        ),
+                        filled: true,
+                        fillColor: Colors.transparent,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      onChanged: (text) =>
+                          _queryNotifier.value = text.trim().toLowerCase(),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   if (_isOffline)
                     Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.orange.withOpacity(0.35)),
+                        color: Colors.white.withOpacity(0.92),
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 12,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                        border: Border.all(
+                          color: const Color(0xFFE8EDF5),
+                        ),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.wifi_off_rounded, color: Colors.orange),
-                          SizedBox(width: 10),
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF3E8),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.wifi_off_rounded,
+                              color: Color(0xFFF2994A),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              "Offline Mode: data mungkin tidak terbaru.",
-                              style: TextStyle(fontWeight: FontWeight.w700),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  "Mode Offline",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                    color: Color(0xFF1F2A44),
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  "Data mungkin belum yang paling terbaru.",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF6B7280),
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -652,19 +801,18 @@ class _LogViewState extends State<LogView> {
                             }
 
                             final visibleLogs = currentLogs.where((log) {
-                              final isOwner =
-                                  log.authorId == widget.currentUser['uid'];
+                              final isOwner = log.authorId == widget.currentUser['uid'];
                               return isOwner || log.isPublic == true;
-                            }).toList();
+                            }).toList()
+                              ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
                             final filteredLogs = query.isEmpty
                                 ? visibleLogs
-                                : visibleLogs
-                                    .where(
-                                      (log) =>
-                                          log.title.toLowerCase().contains(query),
-                                    )
-                                    .toList();
+                                : visibleLogs.where((log) {
+                                    final q = query.toLowerCase();
+                                    return log.title.toLowerCase().contains(q) ||
+                                        log.description.toLowerCase().contains(q);
+                                  }).toList();
 
                             if (filteredLogs.isEmpty) {
                               return _buildEmptyState(
@@ -701,7 +849,7 @@ class _LogViewState extends State<LogView> {
                                       alignment: Alignment.centerRight,
                                       decoration: BoxDecoration(
                                         color: Colors.red,
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(22),
                                       ),
                                       child: const Icon(
                                         Icons.delete_rounded,
@@ -714,148 +862,134 @@ class _LogViewState extends State<LogView> {
                                       }
                                       return false;
                                     },
-                                    child: Card(
+                                    child: Container(
+                                      height: 160,
                                       margin: const EdgeInsets.symmetric(vertical: 6),
-                                      color: cardWhite,
-                                      elevation: 2,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: cardWhite,
+                                        borderRadius: BorderRadius.circular(24),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.06),
+                                            blurRadius: 16,
+                                            offset: const Offset(0, 8),
+                                          ),
+                                        ],
                                       ),
-                                      child: ListTile(
-                                        contentPadding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 8,
-                                        ),
-                                        minVerticalPadding: 12,
-                                        leading: Container(
-                                          width: 40,
-                                          height: 40,
-                                          decoration: BoxDecoration(
-                                            color: accent.withOpacity(0.12),
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
-                                          child: Icon(
-                                            _categoryIcon(log.category),
-                                            color: accent,
-                                          ),
-                                        ),
-                                        title: Text(
-                                          log.title,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w800,
-                                            color: titleColor,
-                                          ),
-                                        ),
-                                        subtitle: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              log.description,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: bodyColor.withOpacity(0.95),
+                                      child: Row(
+                                        children: [
+                                          Align(
+                                            alignment: Alignment.center,
+                                            child: Container(
+                                              width: 52,
+                                              height: 52,
+                                              decoration: BoxDecoration(
+                                                color: accent.withOpacity(0.12),
+                                                borderRadius: BorderRadius.circular(16),
+                                              ),
+                                              child: Icon(
+                                                _categoryIcon(log.category),
+                                                color: accent,
+                                                size: 26,
                                               ),
                                             ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              "Kategori: ${log.category}",
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey[600],
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              "Waktu: ${_formatLogTime(log.createdAt)}",
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey[600],
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Row(
+                                          ),
+                                          const SizedBox(width: 14),
+                                          Expanded(
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
-                                                Icon(
-                                                  log.isPublic
-                                                      ? Icons.public
-                                                      : Icons.lock,
-                                                  size: 16,
-                                                  color: log.isPublic
-                                                      ? Colors.blue
-                                                      : Colors.grey,
-                                                ),
-                                                const SizedBox(width: 6),
                                                 Text(
-                                                  log.isPublic
-                                                      ? "Public"
-                                                      : "Private",
+                                                  log.title,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontSize: 20,
+                                                    fontWeight: FontWeight.w900,
+                                                    color: titleColor,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Text(
+                                                  log.description,
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    height: 1.35,
+                                                    color: bodyColor.withOpacity(0.92),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 12),
+                                                Row(
+                                                  children: [
+                                                    _buildCategoryChip(
+                                                      label: log.category,
+                                                      color: accent,
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    _buildMiniBadge(
+                                                      icon: log.isPublic
+                                                          ? Icons.public
+                                                          : Icons.lock,
+                                                      color: log.isPublic
+                                                          ? Colors.blue
+                                                          : Colors.grey,
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    _buildMiniBadge(
+                                                      icon: log.isSynced
+                                                          ? Icons.cloud_done
+                                                          : Icons.cloud_off,
+                                                      color: log.isSynced
+                                                          ? Colors.green
+                                                          : Colors.orange,
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  _formatLogTime(log.createdAt),
                                                   style: TextStyle(
                                                     fontSize: 12,
-                                                    color: log.isPublic
-                                                        ? Colors.blue
-                                                        : Colors.grey[700],
-                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.grey[600],
                                                   ),
                                                 ),
                                               ],
                                             ),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  log.isSynced
-                                                      ? Icons.cloud_done
-                                                      : Icons.cloud_off,
-                                                  size: 16,
-                                                  color: log.isSynced
-                                                      ? Colors.green
-                                                      : Colors.orange,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  log.isSynced
-                                                      ? "Sudah sinkron ke cloud"
-                                                      : "Masih tersimpan lokal",
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: log.isSynced
-                                                        ? Colors.green
-                                                        : Colors.orange,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                        trailing: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            if (canUpdate)
-                                              IconButton(
-                                                icon: const Icon(
-                                                  Icons.edit,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              if (canUpdate)
+                                                _buildActionButton(
+                                                  icon: Icons.edit_rounded,
                                                   color: Colors.blue,
+                                                  onTap: () => _goToEditor(
+                                                    log: log,
+                                                    index: realIndex,
+                                                  ),
                                                 ),
-                                                onPressed: () => _goToEditor(
-                                                  log: log,
-                                                  index: realIndex,
-                                                ),
-                                              ),
-                                            if (canDelete)
-                                              IconButton(
-                                                icon: const Icon(
-                                                  Icons.delete,
+                                              if (canUpdate && canDelete)
+                                                const SizedBox(height: 8),
+                                              if (canDelete)
+                                                _buildActionButton(
+                                                  icon: Icons.delete_rounded,
                                                   color: Colors.red,
+                                                  onTap: () => _confirmDelete(
+                                                    realIndex,
+                                                    log,
+                                                  ),
                                                 ),
-                                                onPressed: () =>
-                                                    _confirmDelete(realIndex, log),
-                                              ),
-                                          ],
-                                        ),
+                                            ],
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   );

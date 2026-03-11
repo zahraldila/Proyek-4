@@ -396,4 +396,13 @@ class LogController {
       );
     }
   }
+
+  static List<LogModel> filterVisibleLogs(
+    List<LogModel> allLogs,
+    String currentUserId,
+  ) {
+    return allLogs.where((log) {
+      return log.authorId == currentUserId || log.isPublic == true;
+    }).toList();
+  }
 }
